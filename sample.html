@@ -1,0 +1,258 @@
+[if(string((action_param ('page'))->encodehtml) != 'cart')]
+
+[output_none]
+
+<!-- Initialize page variables so a refresh will not crash the page -->
+
+	
+
+<!-- Initialize action_params variables so a refresh will not crash the page -->
+
+[var(function::string = string((action_param ('function'))->encodehtml))]
+[var(quantity::integer = integer((action_param('quantity'))->encodehtml))]
+[var(totalItems::integer = 0)]
+
+<!-- 1 -->
+<!-- RETRIEVE Customer variables -->
+
+[inline(
+	
+	-search)]
+	
+	[Var(cust_discount::decimal = decimal(Field('discount')))]
+  	[var(cust_email::string = string(field('email')))]
+  	
+[/inline]
+
+<!-- DELETES A CART ITEM -->
+[if($function == 'remove')] <!-- 4 -->
+
+	[var(kvid = action_param('kvid'))]
+	
+	<!-- Retrieve Information from the item before deleting it -->
+	[inline(
+		
+		-search)]
+		
+		[var(cart_items_found::integer	= found_count)]
+		[var(Coupon_to_Delete::string	= string(field('serial_number')))]
+		[$cart_count					= string((Found_Count) - 1)]
+	[/inline]
+
+	[If($cart_items_found == 1)]
+
+		<!-- Delete The Item -->
+		[inline(
+			
+		[/inline]
+
+		<!-- Delete Coupon Code used on this order if removing ANY items -->
+		[inline( 
+  			
+  			-search)]
+	
+			[var(cart_kvid					= (keyfield_value))]
+			[var(cart_coupon_code::string	= string(field('coupon_code')))]
+			[var(cart_coupon_amount::decimal= decimal: (field('coupon_amount')))]
+		
+		[/inline]
+	
+		[if((string($cart_coupon_code) != '') || ($cart_coupon_amount > 0))]
+	
+		[inline( 
+			
+		[/inline]
+		
+		[/if]
+
+		<!-- if this is a Gift Certificate SKU then the related Gift Cert must also be deleted -->
+
+		[if(string($Coupon_to_Delete) != '')] <!-- 4.1 -->
+			[inline(
+			
+			-search)]
+			
+			[var(gift_kvid				= (KeyField_Value))]
+			[var(Coupon_Found::integer	= (Found_Count))]
+			[/inline]
+			
+			[if($Coupon_Found == 1)] <!-- 4.2 -->
+				[inline(
+				
+				[/inline]
+			[/if] <!-- 4.2 -->
+			
+		[/if] <!-- 4.1 -->
+	[/if]
+[/if] <!-- 4 -->
+
+<!-- Respond to Refresh Button being pressed on this page  -->
+
+[if(string($function) == '' )] <!-- 7 -->
+	[var(price::decimal = (decimal: 0))]
+[/if] <!-- 7 -->
+
+[var(subtotal::decimal 				= 0.00)]
+[var(no_disc_subtotal::decimal		= 0.00)]
+[var(discountable_subtotal::decimal = 0.00)]
+
+[/output_none]
+
+
+<!-- View the Cart Items - Begin Table here  -->
+           
+[var(What_Action::string = $function)]
+
+[inline(
+	
+	-search)]
+
+	[$cart_count = string(Found_Count)]
+
+	[if(Found_Count == 0)] <!-- 8.12 -->
+		
+			
+			 <!-- No Product -->
+                      <div class="u-basket__product g-brd-none g-px-20">
+                        <div class="row no-gutters g-pb-5">
+                          <div class="col-8">
+                            <h6 class="g-font-weight-400 g-color-bluegray g-font-size-default">
+                              <small>No products in your shopping bag</small>
+                            </h6>
+                          </div>
+                        </div>
+                      </div>
+           <!-- End No Product -->	
+					
+							
+	[else] <!-- 8.12 -->
+	
+	<?LassoScript
+	
+	//-- Begin Display of Cart Items  -->
+
+	var(discountable_item_flag::string = 'no')
+	var(cartitem_kvid)
+	var(check_sku = string)
+	
+	records
+
+	$cartitem_kvid		= (KeyField_Value)
+	$check_sku			= string(field('scrubs_sku'))
+
+	inline(
+		
+		-ReturnField	= ',
+		-ReturnField	= ',
+		-ReturnField	= ',
+		-ReturnField	= ',
+		-ReturnField	= ',
+		-ReturnField	= ',
+		-ReturnField	= ',
+		-ReturnField	= '',
+		-search);
+		var(show_descrip::string		= string(field('')))
+		var(prod_id::string				= string(field('')))
+		var(retail_price::decimal		= decimal(field('')))
+		var(sku_special::string			= string(field('')))
+		var(sku_closeout::string		= string(field('')))
+		var(sku_discountable::string	= string(field('')))
+		var(taxable::string				= string(field('')))
+		var(the_skus_store::string		= string(field('')))
+  	/inline
+
+	inline(
+		-
+		-search);
+	  	var(item_store_name = field('store_full_name'))
+	/inline;
+	
+	inline(
+		
+		-search);
+	  	var(show_name = field('product_name'))
+	/inline
+	
+	if($sku_special == 'no' && $sku_closeout == 'no' && $sku_discountable == 'yes') //<!-- 8.2 -->
+		var(discountable::string = 'yes')
+		var(discountable_item_flag::string = 'yes')
+	else; //<!-- 8.2 -->
+		var(discountable::string = 'no')
+		var(discountable_item_flag::string = 'no')
+	/if; //<!-- 8.2 -->
+	
+	$totalItems += (integer(field('quantity'))) // this is copied in cart.page.lasso might need to merge one day
+	
+	var(item_price::decimal = decimal($retail_price))
+	
+	var(item_ext_price::decimal = ($item_price * (decimal(field('quantity')))))
+	
+	inline(
+		
+		-Update);
+	/inline
+	
+	inline(
+		
+		-search);
+			var(gift_code::string = string(field('serial_number')));
+	/inline;
+?>
+
+  <!-- Product -->
+                      <div class="u-basket__product g-brd-none g-px-20">
+                        <div class="row no-gutters g-pb-5">
+                          <div class="col-4 pr-3">
+                            <a class="u-basket__product-img" href="#!">
+                              <img class="img-fluid" src="../assets/img-temp/150x150/img2.jpg" alt="Image Description">
+                            </a>
+                          </div>
+
+                          <div class="col-8">
+                            <h6 class="g-font-weight-400 g-font-size-default">
+                              <a class="g-color-black g-color-bluegray--hover g-text-underline--none--hover" href="#!">[$show_name]</a>
+                            </h6>
+                            <small class="g-color-bluegray g-font-size-12">[field('quantity')] x [currency($item_price)][if($discountable == 'yes')]   [/if]</small>
+                            <small class="g-color-bluegray g-font-size-12">Total [currency($item_ext_price)]</small>
+                          </div>
+                        </div>
+                        <button type="button" class="u-basket__product-remove">&times;</button>
+                      </div>
+                      [var(subtotal::decimal = ($subtotal + $item_ext_price))]
+
+		[/records]
+	<!-- End Product -->
+
+				[if($discountable_item_flag == 'yes' && $cust_discount > 0.00)] <!-- 8.22 -->
+				[else] <!-- 8.22 -->
+    			</div> <!-- Close Div for js-scrollbar -->
+
+                    <div class="clearfix g-px-15">
+                      <div class="row align-items-center text-center g-brd-y g-brd-gray-light-v4 g-font-size-default">
+                        <div class="col g-brd-right g-brd-gray-light-v4">
+                          <strong class="d-block g-py-10 text-uppercase g-color-main g-font-weight-500 g-py-10">Total</strong>
+                        </div>
+                        <div class="col">[/if] <!-- 8.22 -->
+                          <strong class="d-block g-py-10 g-color-main g-font-weight-500 g-py-10">[currency($subtotal)]</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="g-pa-20">
+                      <div class="text-center g-mb-15">
+                        <a class="text-uppercase g-color-primary g-color-main--hover g-font-weight-400 g-font-size-13 g-text-underline--none--hover" href="[$URL_Prefix][response_filepath]?page=cart">
+                          View Cart
+                          <i class="ml-2 icon-finance-100 u-line-icon-pro"></i>
+                        </a>
+                      </div>
+                      <a class="btn btn-block u-btn-black g-brd-primary--hover g-bg-primary--hover g-font-size-12 text-uppercase rounded g-py-10" href="[$https][response_filepath]?page=checkout_shipping" class="btn u-btn-orange rounded-0 g-width-120">Proceed to Checkout</a>
+                    </div>
+                  </div>
+                </div>
+                [/if] <!-- 8.12 -->
+
+				[/inline]
+
+
+				[/if]
+                <!-- End Basket -->
